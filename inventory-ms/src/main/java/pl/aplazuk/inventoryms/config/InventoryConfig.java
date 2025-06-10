@@ -6,6 +6,8 @@ import org.springframework.cloud.endpoint.event.RefreshEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.web.client.RestClient;
+import pl.aplazuk.inventoryms.service.InventoryService;
 
 @Configuration
 public class InventoryConfig {
