@@ -1,5 +1,7 @@
 package pl.aplazuk.inventoryms.service;
 
+import brave.Span;
+import brave.Tracer;
 import org.springframework.stereotype.Service;
 import pl.aplazuk.inventoryms.dto.ProductDTO;
 import pl.aplazuk.inventoryms.model.Product;
@@ -13,22 +15,45 @@ import java.util.Set;
 public class InventoryService {
 
     private final ProductRepository productRepository;
+    private final Tracer tracer;
 
-    public InventoryService(ProductRepository productRepository) {
+    public InventoryService(ProductRepository productRepository, Tracer tracer) {
         this.productRepository = productRepository;
+        this.tracer = tracer;
     }
 
-
     public List<ProductDTO> getAllProducts() {
-        return mapProductListToProductDtoList(productRepository.findAll());
+        Span span = tracer.nextSpan().name("inventory-all-products-read-db");
+        span.start();
+        try {
+            return mapProductListToProductDtoList(productRepository.findAll());
+        }finally {
+            span.finish();
+        }
     }
 
     public List<ProductDTO> checkProductsAvailability(String category, Set<Long> productIds) {
-        if (!productIds.isEmpty()) {
-            List<Product> productsByIdsAndInventoryCategory = productRepository.findByIdsAndInventoryCategory(productIds, category);
-            return mapProductListToProductDtoList(productsByIdsAndInventoryCategory);
+        Span span = tracer.nextSpan().name("order-inventory-check-processing").tag("category", category);
+        span.start();
+        try {
+            if (!productIds.isEmpty()) {
+                List<Product> productsByIdsAndInventoryCategory = findProductsByIdsAndInventoryCategory(category, productIds);
+                return mapProductListToProductDtoList(productsByIdsAndInventoryCategory);
+            }
+            return Collections.emptyList();
+        } finally {
+            span.finish();
         }
-        return Collections.emptyList();
+    }
+
+    private List<Product> findProductsByIdsAndInventoryCategory(String category, Set<Long> productIds) {
+        Span dbCheckSpan = tracer.newTrace().name("inventory-products-read-db").tag("category", category).start();
+        dbCheckSpan.start();
+        try {
+            return productRepository.findByIdsAndInventoryCategory(productIds, category);
+        } finally {
+            dbCheckSpan.finish();
+        }
     }
 
     private List<ProductDTO> mapProductListToProductDtoList(List<Product> productsByIdsAndInventoryCategory) {

@@ -1,5 +1,7 @@
 package pl.aplazuk.orderms.service;
 
+import brave.Span;
+import brave.Tracer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
@@ -7,6 +9,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import pl.aplazuk.orderms.dto.OrderDTO;
 import pl.aplazuk.orderms.dto.ProductDTO;
@@ -24,10 +27,12 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final RestClient.Builder restClient;
+    private final Tracer tracer;
 
-    public OrderService(OrderRepository orderRepository, RestClient.Builder restClient) {
+    public OrderService(OrderRepository orderRepository, RestClient.Builder restClient, Tracer tracer) {
         this.orderRepository = orderRepository;
         this.restClient = restClient;
+        this.tracer = tracer;
     }
 
     public List<Order> getAllOrders() {
@@ -35,28 +40,20 @@ public class OrderService {
     }
 
     public Optional<OrderDTO> collectOrderByProductIdAndCategory(String category, Set<Long> productIds) {
-        List<ProductDTO> productDTOListByIdsAndCategory = getProductListByIdAndCategory(category, productIds);
+        Span span = tracer.nextSpan().name("order-collect-processing").tag("category", category);
+        span.start();
+        try {
+            List<ProductDTO> productDTOListByIdsAndCategory = getProductListByIdAndCategory(category, productIds);
+            OrderDTO orderDTO = null;
+            if (!productDTOListByIdsAndCategory.isEmpty()) {
+                orderDTO = createOrder(category, productDTOListByIdsAndCategory);
+                saveOrder(orderDTO);
+            }
 
-        OrderDTO orderDTO = null;
-        if (!productDTOListByIdsAndCategory.isEmpty()) {
-            orderDTO = new OrderDTO();
-            orderDTO.setOrderNumber(RANDOM.nextLong(100));
-            orderDTO.setCustomerName("Customer");
-            orderDTO.setCustomerId(RANDOM.nextLong(1000));
-
-
-            orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
-            orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
-
-            BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
-                    .map(ProductDTO::getPrice)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            orderDTO.setTotalPrice(totalPrice);
-            createOrder(orderDTO);
+            return Optional.ofNullable(orderDTO);
+        } finally {
+            span.finish();
         }
-
-        return Optional.ofNullable(orderDTO);
     }
 
     public Optional<OrderDTO> checkPaymentStatusForOrderById(Long orderId, String paymentMethod) {
@@ -110,11 +107,38 @@ public class OrderService {
         return productDTOListByIdsAndCategory;
     }
 
-    private void createOrder(OrderDTO orderDTO) {
+    private OrderDTO createOrder(String category, List<ProductDTO> productDTOListByIdsAndCategory) {
+        OrderDTO orderDTO = new OrderDTO();
+        orderDTO.setOrderNumber(RANDOM.nextLong(100));
+        orderDTO.setCustomerName("Customer");
+        orderDTO.setCustomerId(RANDOM.nextLong(1000));
+
+        orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
+        orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
+
+        BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
+                .map(ProductDTO::getPrice)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        orderDTO.setTotalPrice(totalPrice);
+        return orderDTO;
+    }
+
+    private void saveOrder(OrderDTO orderDTO) {
         if (orderDTO != null) {
-            Order order = convertOrderDTOtoOrder(orderDTO);
-            order.setStatus("OPEN");
-            orderRepository.save(order);
+            Span span = tracer.newTrace().name("order-save-processing").tag("order", orderDTO.getOrderNumber());
+            Span dbSpan = tracer.nextSpan().name("order-save-db");
+            span.start();
+            try {
+                Order order = convertOrderDTOtoOrder(orderDTO);
+                order.setStatus("OPEN");
+
+                dbSpan.start();
+                orderRepository.save(order);
+            } finally {
+                dbSpan.finish();
+                span.finish();
+            }
         }
     }
 
