@@ -4,10 +4,10 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: PRODUCT-MS
-          uri: lb://PRODUCT-MS
+        - id: INVENTORY-MS
+          uri: lb://INVENTORY-MS
           predicates:
-            - Path=/api/product/**, /h2-console/product-ms/**
+            - Path=/api/inventory/**, /h2-console/inventory-ms/**
         - id: ORDER-MS
           uri: lb://ORDER-MS
           predicates:

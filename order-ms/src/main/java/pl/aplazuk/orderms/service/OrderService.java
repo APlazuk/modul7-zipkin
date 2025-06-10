@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import pl.aplazuk.orderms.dto.OrderDTO;
 import pl.aplazuk.orderms.dto.ProductDTO;
 import pl.aplazuk.orderms.model.Order;
@@ -19,6 +20,7 @@ import java.util.*;
 public class OrderService {
 
     private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
+    private static final Random RANDOM = new Random();
 
     private final OrderRepository orderRepository;
     private final RestClient.Builder restClient;
@@ -32,15 +34,15 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
-    public Optional<OrderDTO> collectOrderByProductIdAndCategory(String category, Set<UUID> productIds) {
+    public Optional<OrderDTO> collectOrderByProductIdAndCategory(String category, Set<Long> productIds) {
         List<ProductDTO> productDTOListByIdsAndCategory = getProductListByIdAndCategory(category, productIds);
 
         OrderDTO orderDTO = null;
         if (!productDTOListByIdsAndCategory.isEmpty()) {
             orderDTO = new OrderDTO();
-            orderDTO.setOrderNumber(String.valueOf(new Random().nextInt(100)));
+            orderDTO.setOrderNumber(RANDOM.nextLong(100));
             orderDTO.setCustomerName("Customer");
-            orderDTO.setCustomerId(new Random().nextLong(1000));
+            orderDTO.setCustomerId(RANDOM.nextLong(1000));
 
 
             orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
@@ -73,11 +75,15 @@ public class OrderService {
         return order;
     }
 
-    private List<ProductDTO> getProductListByIdAndCategory(String category, Set<UUID> productIds) {
+    private List<ProductDTO> getProductListByIdAndCategory(String category, Set<Long> productIds) {
         try {
-            return restClient.build()
+            List<ProductDTO> body = restClient.build()
                     .get()
-                    .uri("http://localhost:8080/api/inventory/check?category=category&productIds=productIds", category, productIds)
+                    .uri(UriComponentsBuilder.fromUriString("http://localhost:8080/api/inventory/check")
+                            .queryParam("category", category)
+                            .queryParam("productIds", productIds)
+                            .build()
+                            .toUri())
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
                                 if (response.getStatusCode().value() == 404) {
@@ -88,13 +94,30 @@ public class OrderService {
                     )
                     .body(new ParameterizedTypeReference<List<ProductDTO>>() {
                     });
+            return body;
         } catch (NoProductsFoundException e) {
             logger.warn("No products found for given category: {}", category, e);
             return Collections.emptyList();
         }
     }
 
-    public Order checkPaymentStatusForOrder(Long orderId, String paymentMethod) {
-        return null;
+    public Optional<OrderDTO> checkPaymentStatusForOrderById(Long orderId, String paymentMethod) {
+        try {
+            OrderDTO orderDTO = restClient.build()
+                    .get()
+                    .uri("http://localhost:8080/api/payment/check?orderId={orderId}&paymentMethod={paymentMethod}", orderId, paymentMethod)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                        if (response.getStatusCode().value() == 404) {
+                            throw new NoOrderFoundException(response.getStatusText());
+                        }
+                        throw new HttpClientErrorException(response.getStatusCode(), response.getStatusText());
+                    })
+                    .body(OrderDTO.class);
+            return Optional.ofNullable(orderDTO);
+        } catch (NoOrderFoundException e) {
+            logger.warn("No orders found for given paymentMethod: {} and orderId: {}", paymentMethod, orderId, e);
+            return Optional.empty();
+        }
     }
 }

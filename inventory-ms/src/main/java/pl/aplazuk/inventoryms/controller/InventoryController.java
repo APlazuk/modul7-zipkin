@@ -25,7 +25,7 @@ public class InventoryController {
     }
 
     @GetMapping("/check")
-    public ResponseEntity<List<ProductDTO>> getProductsByCategory(@RequestParam String category, @RequestParam Set<UUID> productIds) {
+    public ResponseEntity<List<ProductDTO>> getProductsByCategory(@RequestParam String category, @RequestParam Set<Long> productIds) {
         List<ProductDTO> productsByIdAndCategory = productService.checkProductsAvailability(category, productIds);
         if (productsByIdAndCategory.isEmpty()) {
             return ResponseEntity.notFound().build();

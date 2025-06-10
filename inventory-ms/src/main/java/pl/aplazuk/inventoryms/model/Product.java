@@ -3,15 +3,14 @@ package pl.aplazuk.inventoryms.model;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Entity
 @Table(name = "products")
 public class Product {
 
     @Id
-    @GeneratedValue
-    private UUID productId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long productId;
     private String productName;
     private Integer quantity;
     private BigDecimal price;
@@ -20,7 +19,7 @@ public class Product {
     @JoinColumn(name = "inventory_id")
     private Inventory inventory;
 
-    public Product(UUID productId, String productName, Integer quantity, BigDecimal price, Inventory inventory) {
+    public Product(Long productId, String productName, Integer quantity, BigDecimal price, Inventory inventory) {
         this.productId = productId;
         this.productName = productName;
         this.quantity = quantity;
@@ -30,11 +29,11 @@ public class Product {
 
     public Product() {}
 
-    public UUID getProductId() {
+    public Long getProductId() {
         return productId;
     }
 
-    public void setProductId(UUID productId) {
+    public void setProductId(Long productId) {
         this.productId = productId;
     }
 

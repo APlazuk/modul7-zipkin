@@ -1,6 +1,6 @@
 CREATE TABLE products
 (
-    product_id   UUID DEFAULT RANDOM_UUID() PRIMARY KEY,
+    product_id   BIGINT PRIMARY KEY,
     product_name VARCHAR(255),
     quantity     INT,
     price        DECIMAL,

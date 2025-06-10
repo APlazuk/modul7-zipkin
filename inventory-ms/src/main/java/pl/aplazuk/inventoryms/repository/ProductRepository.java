@@ -7,7 +7,6 @@ import pl.aplazuk.inventoryms.model.Product;
 
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -17,6 +16,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                 WHERE p.productId IN :ids 
                   AND p.inventory.category = :category
             """)
-    List<Product> findByIdsAndInventoryCategory(Set<UUID> ids, String category);
+    List<Product> findByIdsAndInventoryCategory(Set<Long> ids, String category);
 
 }

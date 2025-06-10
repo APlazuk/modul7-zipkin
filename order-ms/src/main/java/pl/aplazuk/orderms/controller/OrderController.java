@@ -28,15 +28,17 @@ public class OrderController {
     }
 
     @GetMapping("/collect/{category}")
-    public ResponseEntity<?> getOrderWithProductsListByCategory(@PathVariable(name = "category") String productCategory, @RequestParam Set<UUID> productIds) {
+    public ResponseEntity<?> getOrderWithProductsListByCategory(@PathVariable(name = "category") String productCategory, @RequestParam Set<Long> productIds) {
         Optional<OrderDTO> orderDTO = orderService.collectOrderByProductIdAndCategory(productCategory, productIds);
         return orderDTO.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
 
     }
 
     @GetMapping("/payment/status")
-    public ResponseEntity<Order> getPaymentStatusByOrderId(@RequestParam Long orderId, @RequestParam String paymentMethod) {
-        orderService.checkPaymentStatusForOrder(orderId, paymentMethod);
+    public ResponseEntity<String> getPaymentStatusByOrderId(@RequestParam Long orderId, @RequestParam String paymentMethod) {
+        Optional<OrderDTO> orderDTO = orderService.checkPaymentStatusForOrderById(orderId, paymentMethod);
+        return orderDTO.map(response -> ResponseEntity.ok(String.format("Order id: %s; Payment status: %s; Payment method: %s", response.getOrderNumber(),response.getStatus(), paymentMethod)))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Order with id: " + orderId + "Was not found"));
     }
 
 }

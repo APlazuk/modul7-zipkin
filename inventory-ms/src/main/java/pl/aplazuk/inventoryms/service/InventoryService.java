@@ -28,7 +28,7 @@ public class InventoryService {
         return mapProductListToProductDtoList(productRepository.findAll());
     }
 
-    public List<ProductDTO> checkProductsAvailability(String category, Set<UUID> productIds) {
+    public List<ProductDTO> checkProductsAvailability(String category, Set<Long> productIds) {
         if (!productIds.isEmpty()) {
             List<Product> productsByIdsAndInventoryCategory = productRepository.findByIdsAndInventoryCategory(productIds, category);
             return mapProductListToProductDtoList(productsByIdsAndInventoryCategory);
