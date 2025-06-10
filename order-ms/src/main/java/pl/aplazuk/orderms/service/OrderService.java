@@ -46,7 +46,7 @@ public class OrderService {
 
 
             orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
-            orderDTO.setProducts(productDTOListByIdsAndCategory);
+            orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
 
             BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
                     .map(ProductDTO::getPrice)
@@ -59,20 +59,24 @@ public class OrderService {
         return Optional.ofNullable(orderDTO);
     }
 
-    private void createOrder(OrderDTO orderDTO) {
-        if (orderDTO != null) {
-            Order order = convertOrderDTOtoOrder(orderDTO);
-            orderRepository.save(order);
+    public Optional<OrderDTO> checkPaymentStatusForOrderById(Long orderId, String paymentMethod) {
+        try {
+            OrderDTO orderDTO = restClient.build()
+                    .get()
+                    .uri("http://localhost:8080/api/payment/check?orderId={orderId}&paymentMethod={paymentMethod}", orderId, paymentMethod)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                        if (response.getStatusCode().value() == 404) {
+                            throw new NoOrderFoundException(response.getStatusText());
+                        }
+                        throw new HttpClientErrorException(response.getStatusCode(), response.getStatusText());
+                    })
+                    .body(OrderDTO.class);
+            return Optional.ofNullable(orderDTO);
+        } catch (NoOrderFoundException e) {
+            logger.warn("No orders found for given paymentMethod: {} and orderId: {}", paymentMethod, orderId, e);
+            return Optional.empty();
         }
-    }
-
-    private Order convertOrderDTOtoOrder(OrderDTO orderDTO) {
-        Order order = new Order();
-        order.setOrderNumber(orderDTO.getOrderNumber());
-        order.setCustomerName(orderDTO.getCustomerName());
-        order.setCustomerId(orderDTO.getCustomerId());
-        order.setTotalPrice(orderDTO.getTotalPrice());
-        return order;
     }
 
     private List<ProductDTO> getProductListByIdAndCategory(String category, Set<Long> productIds) {
@@ -101,23 +105,25 @@ public class OrderService {
         }
     }
 
-    public Optional<OrderDTO> checkPaymentStatusForOrderById(Long orderId, String paymentMethod) {
-        try {
-            OrderDTO orderDTO = restClient.build()
-                    .get()
-                    .uri("http://localhost:8080/api/payment/check?orderId={orderId}&paymentMethod={paymentMethod}", orderId, paymentMethod)
-                    .retrieve()
-                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-                        if (response.getStatusCode().value() == 404) {
-                            throw new NoOrderFoundException(response.getStatusText());
-                        }
-                        throw new HttpClientErrorException(response.getStatusCode(), response.getStatusText());
-                    })
-                    .body(OrderDTO.class);
-            return Optional.ofNullable(orderDTO);
-        } catch (NoOrderFoundException e) {
-            logger.warn("No orders found for given paymentMethod: {} and orderId: {}", paymentMethod, orderId, e);
-            return Optional.empty();
+    private List<ProductDTO> mapCategoryToProduct(List<ProductDTO> productDTOListByIdsAndCategory, String category) {
+        productDTOListByIdsAndCategory.forEach(productDTO -> productDTO.setCategory(category));
+        return productDTOListByIdsAndCategory;
+    }
+
+    private void createOrder(OrderDTO orderDTO) {
+        if (orderDTO != null) {
+            Order order = convertOrderDTOtoOrder(orderDTO);
+            order.setStatus("OPEN");
+            orderRepository.save(order);
         }
+    }
+
+    private Order convertOrderDTOtoOrder(OrderDTO orderDTO) {
+        Order order = new Order();
+        order.setOrderNumber(orderDTO.getOrderNumber());
+        order.setCustomerName(orderDTO.getCustomerName());
+        order.setCustomerId(orderDTO.getCustomerId());
+        order.setTotalPrice(orderDTO.getTotalPrice());
+        return order;
     }
 }

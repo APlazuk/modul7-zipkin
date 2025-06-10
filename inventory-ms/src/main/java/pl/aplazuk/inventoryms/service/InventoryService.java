@@ -1,18 +1,13 @@
 package pl.aplazuk.inventoryms.service;
 
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import pl.aplazuk.inventoryms.dto.ProductDTO;
-import pl.aplazuk.inventoryms.model.Inventory;
 import pl.aplazuk.inventoryms.model.Product;
-import pl.aplazuk.inventoryms.repository.InventoryRepository;
 import pl.aplazuk.inventoryms.repository.ProductRepository;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 public class InventoryService {
