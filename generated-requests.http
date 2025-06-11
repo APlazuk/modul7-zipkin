@@ -1,0 +1,27 @@
+
+###
+GET http://localhost:8080/api/order/collect/toys?
+    productIds=3&productIds=2
+
+###
+GET http://localhost:8080/api/order/collect/home accessories?
+    productIds=1&productIds=2&productIds=3&productIds=4
+
+###
+GET http://localhost:8080/api/order/collect/books?
+    productIds=1&productIds=2&productIds=3&productIds=4
+
+###
+GET http://localhost:8080/api/order/payment/status?
+    orderId={{$random.integer(100)}}&
+    paymentMethod=blik
+
+###
+GET http://localhost:8080/api/order/payment/status?
+    orderId={{$random.integer(100)}}&
+    paymentMethod=paypal
+
+###
+GET http://localhost:8080/api/order/payment/status?
+    orderId={{$random.integer(100)}}&
+    paymentMethod=bank transfer

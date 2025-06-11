@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import pl.aplazuk.orderms.dto.OrderDTO;
 import pl.aplazuk.orderms.dto.ProductDTO;
@@ -57,6 +56,8 @@ public class OrderService {
     }
 
     public Optional<OrderDTO> checkPaymentStatusForOrderById(Long orderId, String paymentMethod) {
+        Span span = tracer.nextSpan().name("order-payment-call").tag("order", String.valueOf(orderId));
+        span.start();
         try {
             OrderDTO orderDTO = restClient.build()
                     .get()
@@ -73,10 +74,14 @@ public class OrderService {
         } catch (NoOrderFoundException e) {
             logger.warn("No orders found for given paymentMethod: {} and orderId: {}", paymentMethod, orderId, e);
             return Optional.empty();
+        } finally {
+            span.finish();
         }
     }
 
     private List<ProductDTO> getProductListByIdAndCategory(String category, Set<Long> productIds) {
+        Span span = tracer.nextSpan().name("order-inventory-call").tag("category", category);
+        span.start();
         try {
             List<ProductDTO> body = restClient.build()
                     .get()
@@ -99,6 +104,8 @@ public class OrderService {
         } catch (NoProductsFoundException e) {
             logger.warn("No products found for given category: {}", category, e);
             return Collections.emptyList();
+        } finally {
+            span.finish();
         }
     }
 
@@ -108,27 +115,31 @@ public class OrderService {
     }
 
     private OrderDTO createOrder(String category, List<ProductDTO> productDTOListByIdsAndCategory) {
-        OrderDTO orderDTO = new OrderDTO();
-        orderDTO.setOrderNumber(RANDOM.nextLong(100));
-        orderDTO.setCustomerName("Customer");
-        orderDTO.setCustomerId(RANDOM.nextLong(1000));
+        Span span = tracer.nextSpan().name("order-create-processing").tag("category", category);
+        span.start();
+        try {
+            OrderDTO orderDTO = new OrderDTO();
+            orderDTO.setOrderNumber(RANDOM.nextLong(100));
+            orderDTO.setCustomerName("Customer");
+            orderDTO.setCustomerId(RANDOM.nextLong(1000));
 
-        orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
-        orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
+            orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
+            orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
 
-        BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
-                .map(ProductDTO::getPrice)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        orderDTO.setTotalPrice(totalPrice);
-        return orderDTO;
+            BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
+                    .map(ProductDTO::getPrice)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            orderDTO.setTotalPrice(totalPrice);
+            return orderDTO;
+        } finally {
+            span.finish();
+        }
     }
 
     private void saveOrder(OrderDTO orderDTO) {
         if (orderDTO != null) {
-            Span span = tracer.newTrace().name("order-save-processing").tag("order", orderDTO.getOrderNumber());
-            Span dbSpan = tracer.nextSpan().name("order-save-db");
-            span.start();
+            Span dbSpan = tracer.newTrace().name("order-save-db").tag("order", orderDTO.getOrderNumber());
             try {
                 Order order = convertOrderDTOtoOrder(orderDTO);
                 order.setStatus("OPEN");
@@ -137,7 +148,6 @@ public class OrderService {
                 orderRepository.save(order);
             } finally {
                 dbSpan.finish();
-                span.finish();
             }
         }
     }
