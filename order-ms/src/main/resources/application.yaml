@@ -9,12 +9,3 @@ server:
 eureka:
   instance:
     instance-id: ${spring.application.name}:${random.uuid}
-    metadata-map:
-      metrics.path: /actuator/prometheus
-      health.path: /actuator/health
-      management.context-path: /actuator
-
-management:
-  metrics:
-    tags:
-      application=${spring.application.name}:

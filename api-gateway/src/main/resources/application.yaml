@@ -27,3 +27,8 @@ management:
     tracing:
       endpoint: http://localhost:9411/api/v2/spans
       encoding: json
+
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics

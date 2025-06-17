@@ -1,14 +1,6 @@
 version: '3.8'
 
 services:
-  zipkin:
-    image: openzipkin/zipkin:latest
-    container_name: zipkin-ms
-    ports:
-      - "9411:9411"
-    environment:
-      - STORAGE_TYPE=mem
-    restart: unless-stopped
 
   prometheus:
     image: prom/prometheus
@@ -19,6 +11,19 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+
+
+  ## Tempo Service
+  tempo:
+    image: grafana/tempo
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - ./docker/tempo/tempo-data:/tmp/tempo
+    ports:
+      - "3200:3200" # Tempo
+      - "9411:9411" # zipkin
 
   grafana:
     image: grafana/grafana
