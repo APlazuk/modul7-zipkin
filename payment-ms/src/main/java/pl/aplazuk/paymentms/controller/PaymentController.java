@@ -33,7 +33,7 @@ public class PaymentController {
         Span span = tracer.currentSpan().tag("paymentMethod", paymentMethod);
         span.start();
         try {
-            OrderDTO orderDTO = paymentService.checkPaymentStatusForGivenOrder(null, paymentMethod);
+            OrderDTO orderDTO = paymentService.checkPaymentStatusForGivenOrder(orderId, paymentMethod);
             return ResponseEntity.ok(orderDTO);
         }finally {
             span.finish();

@@ -49,11 +49,7 @@ class OrderServiceTest {
     @Mock
     private RestClient.Builder restClientBuilder;
 
-    private Tracing braveTracing;
-    private Tracer tracer;
-
     private OrderService orderService;
-    private OrderMapper orderMapper;
 
     private Set<Long> mockProductIds;
     private List<ProductDTO> mockProductsByCategory;
@@ -63,9 +59,9 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        orderMapper = Mappers.getMapper(OrderMapper.class);
-        braveTracing = Tracing.newBuilder().build();
-        tracer = braveTracing.tracer();
+        OrderMapper orderMapper = Mappers.getMapper(OrderMapper.class);
+        Tracing braveTracing = Tracing.newBuilder().build();
+        Tracer tracer = braveTracing.tracer();
 
         orderService = new OrderService(orderRepository, restClientBuilder, tracer, orderMapper);
 
@@ -110,9 +106,7 @@ class OrderServiceTest {
         })).thenThrow(new NoProductsFoundException(HttpStatus.NOT_FOUND.getReasonPhrase(), "No products found for given category: " + CATEGORY));
 
         //when
-        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> {
-                    orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
-                }
+        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds)
         );
 
         //then

@@ -1,6 +1,5 @@
 package pl.aplazuk.orderms.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -11,12 +10,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 import pl.aplazuk.orderms.dto.OrderDTO;
-import pl.aplazuk.orderms.dto.ProductDTO;
 import pl.aplazuk.orderms.model.Order;
 import pl.aplazuk.orderms.repository.OrderRepository;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,7 +41,6 @@ class OrderServiceIntegrationTest {
     @Captor
     ArgumentCaptor<Order> orderCaptor;
 
-    private List<ProductDTO> productsByCategory;
     private Set<Long> mockProductIds;
 
     @BeforeEach
@@ -54,7 +50,7 @@ class OrderServiceIntegrationTest {
 
 
     @Test
-    public void shouldCallApiAndReturnSelectedProductsByCategory() throws JsonProcessingException {
+    public void shouldCallApiAndReturnSelectedProductsByCategory() {
         //given
         mockProductIds = Set.of(1L, 2L, 3L, 4L);
 
@@ -76,9 +72,7 @@ class OrderServiceIntegrationTest {
         mockProductIds = Set.of(1L);
 
         //when
-        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> {
-                    orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
-                }
+        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds)
         );
 
         //then
