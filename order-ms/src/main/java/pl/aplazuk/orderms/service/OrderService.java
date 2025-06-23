@@ -12,10 +12,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import pl.aplazuk.orderms.dto.OrderDTO;
 import pl.aplazuk.orderms.dto.ProductDTO;
+import pl.aplazuk.orderms.mapper.OrderMapper;
 import pl.aplazuk.orderms.model.Order;
 import pl.aplazuk.orderms.repository.OrderRepository;
 
-import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -27,15 +27,17 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final RestClient.Builder restClient;
     private final Tracer tracer;
+    private final OrderMapper orderMapper;
 
-    public OrderService(OrderRepository orderRepository, RestClient.Builder restClient, Tracer tracer) {
+    public OrderService(OrderRepository orderRepository, RestClient.Builder restClient, Tracer tracer, OrderMapper orderMapper) {
         this.orderRepository = orderRepository;
         this.restClient = restClient;
         this.tracer = tracer;
+        this.orderMapper = orderMapper;
     }
 
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+    public List<OrderDTO> getAllOrders() {
+        return orderMapper.toOrderDTOs(orderRepository.findAll());
     }
 
     public Optional<OrderDTO> collectOrderByProductIdAndCategory(String category, Set<Long> productIds) {
@@ -109,11 +111,6 @@ public class OrderService {
         }
     }
 
-    private List<ProductDTO> mapCategoryToProduct(List<ProductDTO> productDTOListByIdsAndCategory, String category) {
-        productDTOListByIdsAndCategory.forEach(productDTO -> productDTO.setCategory(category));
-        return productDTOListByIdsAndCategory;
-    }
-
     private OrderDTO createOrder(String category, List<ProductDTO> productDTOListByIdsAndCategory) {
         Span span = tracer.nextSpan().name("order-create-processing").tag("category", category);
         span.start();
@@ -122,16 +119,7 @@ public class OrderService {
             orderDTO.setOrderNumber(RANDOM.nextLong(100));
             orderDTO.setCustomerName("Customer");
             orderDTO.setCustomerId(RANDOM.nextLong(1000));
-
-            orderDTO.setQuantity(productDTOListByIdsAndCategory.size());
-            orderDTO.setProducts(mapCategoryToProduct(productDTOListByIdsAndCategory, category));
-
-            BigDecimal totalPrice = productDTOListByIdsAndCategory.stream()
-                    .map(ProductDTO::getPrice)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            orderDTO.setTotalPrice(totalPrice);
-            return orderDTO;
+            return orderMapper.toOrderDTO(orderDTO, productDTOListByIdsAndCategory, category);
         } finally {
             span.finish();
         }
@@ -141,7 +129,7 @@ public class OrderService {
         if (orderDTO != null) {
             Span dbSpan = tracer.newTrace().name("order-save-db").tag("order", orderDTO.getOrderNumber());
             try {
-                Order order = convertOrderDTOtoOrder(orderDTO);
+                Order order = orderMapper.toOrder(orderDTO);
                 order.setStatus("OPEN");
 
                 dbSpan.start();
@@ -150,14 +138,5 @@ public class OrderService {
                 dbSpan.finish();
             }
         }
-    }
-
-    private Order convertOrderDTOtoOrder(OrderDTO orderDTO) {
-        Order order = new Order();
-        order.setOrderNumber(orderDTO.getOrderNumber());
-        order.setCustomerName(orderDTO.getCustomerName());
-        order.setCustomerId(orderDTO.getCustomerId());
-        order.setTotalPrice(orderDTO.getTotalPrice());
-        return order;
     }
 }

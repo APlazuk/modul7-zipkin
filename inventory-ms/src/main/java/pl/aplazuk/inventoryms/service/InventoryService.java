@@ -4,10 +4,10 @@ import brave.Span;
 import brave.Tracer;
 import org.springframework.stereotype.Service;
 import pl.aplazuk.inventoryms.dto.ProductDTO;
+import pl.aplazuk.inventoryms.mapper.InventoryMapper;
 import pl.aplazuk.inventoryms.model.Product;
 import pl.aplazuk.inventoryms.repository.ProductRepository;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -16,18 +16,20 @@ public class InventoryService {
 
     private final ProductRepository productRepository;
     private final Tracer tracer;
+    private final InventoryMapper inventoryMapper;
 
-    public InventoryService(ProductRepository productRepository, Tracer tracer) {
+    public InventoryService(ProductRepository productRepository, Tracer tracer, InventoryMapper inventoryMapper) {
         this.productRepository = productRepository;
         this.tracer = tracer;
+        this.inventoryMapper = inventoryMapper;
     }
 
     public List<ProductDTO> getAllProducts() {
         Span span = tracer.nextSpan().name("inventory-all-products-read-db");
         span.start();
         try {
-            return mapProductListToProductDtoList(productRepository.findAll());
-        }finally {
+            return inventoryMapper.mapToDtoList(productRepository.findAll());
+        } finally {
             span.finish();
         }
     }
@@ -36,11 +38,11 @@ public class InventoryService {
         Span span = tracer.nextSpan().name("order-inventory-check-processing").tag("category", category);
         span.start();
         try {
-            if (!productIds.isEmpty()) {
-                List<Product> productsByIdsAndInventoryCategory = findProductsByIdsAndInventoryCategory(category, productIds);
-                return mapProductListToProductDtoList(productsByIdsAndInventoryCategory);
+            if (productIds.isEmpty()) {
+                throw new InventoryNotFoundException("No products available for category " + category);
             }
-            return Collections.emptyList();
+            List<Product> productsByIdsAndInventoryCategory = findProductsByIdsAndInventoryCategory(category, productIds);
+            return inventoryMapper.mapToDtoList(productsByIdsAndInventoryCategory);
         } finally {
             span.finish();
         }
@@ -50,17 +52,15 @@ public class InventoryService {
         Span dbCheckSpan = tracer.newTrace().name("inventory-products-read-db").tag("category", category).start();
         dbCheckSpan.start();
         try {
-            return productRepository.findByIdsAndInventoryCategory(productIds, category);
+            List<Product> products = productRepository.findByIdsAndInventoryCategory(productIds, category);
+            if (products.isEmpty()) {
+                throw new InventoryNotFoundException(
+                        String.format("No products found in inventory for category '%s' and ids %s", category, productIds)
+                );
+            }
+            return products;
         } finally {
             dbCheckSpan.finish();
         }
-    }
-
-    private List<ProductDTO> mapProductListToProductDtoList(List<Product> productsByIdsAndInventoryCategory) {
-        return productsByIdsAndInventoryCategory.stream().map(this::mapToDto).toList();
-    }
-
-    private ProductDTO mapToDto(Product product) {
-        return new ProductDTO(product.getProductId(), product.getProductName(), product.getQuantity(), product.getPrice());
     }
 }

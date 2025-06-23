@@ -23,12 +23,12 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getAllOrders() {
+    public ResponseEntity<List<OrderDTO>> getAllOrders() {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
     @GetMapping("/collect/{category}")
-    public ResponseEntity<?> getOrderWithProductsListByCategory(@PathVariable(name = "category") String productCategory, @RequestParam Set<Long> productIds) {
+    public ResponseEntity<OrderDTO> getOrderWithProductsListByCategory(@PathVariable(name = "category") String productCategory, @RequestParam Set<Long> productIds) {
         Optional<OrderDTO> orderDTO = orderService.collectOrderByProductIdAndCategory(productCategory, productIds);
         return orderDTO.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
 
