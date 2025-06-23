@@ -16,6 +16,8 @@ import pl.aplazuk.orderms.mapper.OrderMapper;
 import pl.aplazuk.orderms.model.Order;
 import pl.aplazuk.orderms.repository.OrderRepository;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 @Service
@@ -67,15 +69,13 @@ public class OrderService {
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
                         if (response.getStatusCode().value() == 404) {
-                            throw new NoOrderFoundException(response.getStatusText());
+                            String responseBody = readResponse(response.getBody());
+                            throw new NoOrderFoundException(response.getStatusText(), responseBody);
                         }
                         throw new HttpClientErrorException(response.getStatusCode(), response.getStatusText());
                     })
                     .body(OrderDTO.class);
             return Optional.ofNullable(orderDTO);
-        } catch (NoOrderFoundException e) {
-            logger.warn("No orders found for given paymentMethod: {} and orderId: {}", paymentMethod, orderId, e);
-            return Optional.empty();
         } finally {
             span.finish();
         }
@@ -95,7 +95,8 @@ public class OrderService {
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
                                 if (response.getStatusCode().value() == 404) {
-                                    throw new NoProductsFoundException(response.getStatusText());
+                                    String responseBody = readResponse(response.getBody());
+                                    throw new NoProductsFoundException(response.getStatusText(), responseBody);
                                 }
                                 throw new HttpClientErrorException(response.getStatusCode(), response.getStatusText());
                             }
@@ -103,9 +104,6 @@ public class OrderService {
                     .body(new ParameterizedTypeReference<List<ProductDTO>>() {
                     });
             return body;
-        } catch (NoProductsFoundException e) {
-            logger.warn("No products found for given category: {}", category, e);
-            return Collections.emptyList();
         } finally {
             span.finish();
         }
@@ -138,5 +136,16 @@ public class OrderService {
                 dbSpan.finish();
             }
         }
+    }
+
+    private static String readResponse(InputStream body) throws IOException {
+        try (body) {
+            if (body != null) {
+                return new String(body.readAllBytes());
+            }
+        } catch (IOException ex) {
+            throw new IOException(ex);
+        }
+        return "[unreadable body]";
     }
 }

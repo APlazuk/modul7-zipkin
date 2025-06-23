@@ -55,7 +55,7 @@ public class InventoryService {
             List<Product> products = productRepository.findByIdsAndInventoryCategory(productIds, category);
             if (products.isEmpty()) {
                 throw new InventoryNotFoundException(
-                        String.format("No products found in inventory for category '%s' and ids %s", category, productIds)
+                        String.format("No products found in inventory for category '%s' and ids '%s'", category, productIds)
                 );
             }
             return products;

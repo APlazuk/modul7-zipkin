@@ -76,11 +76,14 @@ class OrderServiceIntegrationTest {
         mockProductIds = Set.of(1L);
 
         //when
-        Optional<OrderDTO> orderDTO = orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
+        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> {
+                    orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
+                }
+        );
 
         //then
         verify(orderRepository, never()).save(orderCaptor.capture());
-        assertFalse(orderDTO.isPresent());
+        assertTrue(exception.getResponseBody().contains("No products found in inventory for category"));
 
         mockServer.verify();
     }

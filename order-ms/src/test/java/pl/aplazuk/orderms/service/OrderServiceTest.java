@@ -107,16 +107,19 @@ class OrderServiceTest {
         ArgumentCaptor<Predicate<HttpStatusCode>> statusCodeCaptor = ArgumentCaptor.forClass(Predicate.class);
         when(responseSpec.onStatus(any(Predicate.class), any(RestClient.ResponseSpec.ErrorHandler.class))).thenReturn(responseSpec);
         when(responseSpec.body(new ParameterizedTypeReference<List<ProductDTO>>() {
-        })).thenThrow(new NoProductsFoundException("No products found for given category: " + CATEGORY));
+        })).thenThrow(new NoProductsFoundException(HttpStatus.NOT_FOUND.getReasonPhrase(), "No products found for given category: " + CATEGORY));
 
         //when
-        Optional<OrderDTO> actual = orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
+        NoProductsFoundException exception = assertThrows(NoProductsFoundException.class, () -> {
+                    orderService.collectOrderByProductIdAndCategory(CATEGORY, mockProductIds);
+                }
+        );
 
         //then
         verify(orderRepository, never()).save(orderCaptor.capture());
         verify(responseSpec, times(1)).onStatus(statusCodeCaptor.capture(), any());
         assertTrue(statusCodeCaptor.getValue().test(HttpStatus.NOT_FOUND));
-        assertFalse(actual.isPresent());
+        assertEquals("No products found for given category: " + CATEGORY, exception.getResponseBody());
     }
 
 }

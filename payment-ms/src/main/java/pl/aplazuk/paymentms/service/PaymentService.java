@@ -19,6 +19,9 @@ public class PaymentService {
         Span span = tracer.nextSpan().name("order-payment-processing").tag("paymentMethod", paymentMethod);
         span.start();
         try {
+            if (orderId == null) {
+                throw new NoOrderFoundException(String.format("No orders found for given paymentMethod: %s; Check order id: %s", paymentMethod, orderId));
+            }
             return new OrderDTO(orderId, PaymentStatus.getRandomStatus(), paymentMethod);
         } finally {
             span.finish();
